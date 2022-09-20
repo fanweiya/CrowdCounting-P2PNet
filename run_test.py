@@ -7,7 +7,7 @@ from pathlib import Path
 import torch
 import torchvision.transforms as standard_transforms
 import numpy as np
-
+from torchinfo import summary
 from PIL import Image
 import cv2
 from crowd_datasets import build_dataset
@@ -33,7 +33,8 @@ def get_args_parser():
                         help='path where to save')
     parser.add_argument('--weight_path', default='',
                         help='path where the trained weights saved')
-
+    parser.add_argument('--img_path', default='',
+                        help='img path')
     parser.add_argument('--gpu_id', default=0, type=int, help='the gpu used for evaluation')
 
     return parser
@@ -54,6 +55,7 @@ def main(args, debug=False):
         model.load_state_dict(checkpoint['model'])
     # convert to eval mode
     model.eval()
+
     # create the pre-processing transform
     transform = standard_transforms.Compose([
         standard_transforms.ToTensor(), 
@@ -61,7 +63,7 @@ def main(args, debug=False):
     ])
 
     # set your image path here
-    img_path = "./vis/demo1.jpg"
+    img_path = args.img_path
     # load the images
     img_raw = Image.open(img_path).convert('RGB')
     # round the size
@@ -71,11 +73,13 @@ def main(args, debug=False):
     img_raw = img_raw.resize((new_width, new_height), Image.ANTIALIAS)
     # pre-proccessing
     img = transform(img_raw)
-
+    print("img_shape",img.shape)
     samples = torch.Tensor(img).unsqueeze(0)
     samples = samples.to(device)
     # run inference
     outputs = model(samples)
+    print(samples.shape,outputs['pred_logits'],outputs['pred_logits'].shape)
+    print(samples.shape,outputs['pred_points'],outputs['pred_points'].shape)
     outputs_scores = torch.nn.functional.softmax(outputs['pred_logits'], -1)[:, :, 1][0]
 
     outputs_points = outputs['pred_points'][0]
@@ -84,10 +88,6 @@ def main(args, debug=False):
     # filter the predictions
     points = outputs_points[outputs_scores > threshold].detach().cpu().numpy().tolist()
     predict_cnt = int((outputs_scores > threshold).sum())
-
-    outputs_scores = torch.nn.functional.softmax(outputs['pred_logits'], -1)[:, :, 1][0]
-
-    outputs_points = outputs['pred_points'][0]
     # draw the predictions
     size = 2
     img_to_draw = cv2.cvtColor(np.array(img_raw), cv2.COLOR_RGB2BGR)

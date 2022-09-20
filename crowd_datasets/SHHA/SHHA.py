@@ -8,34 +8,36 @@ import cv2
 import glob
 import scipy.io as io
 
+
 class SHHA(Dataset):
     def __init__(self, data_root, transform=None, train=False, patch=False, flip=False):
         self.root_path = data_root
-        self.train_lists = "shanghai_tech_part_a_train.list"
-        self.eval_list = "shanghai_tech_part_a_test.list"
+        self.train_lists = "train.txt"
+        self.eval_list = "valid.txt"
         # there may exist multiple list files
-        self.img_list_file = self.train_lists.split(',')
+        self.img_list_file = self.train_lists
         if train:
-            self.img_list_file = self.train_lists.split(',')
+            self.img_list_file = self.train_lists
         else:
-            self.img_list_file = self.eval_list.split(',')
+            self.img_list_file = self.eval_list
 
         self.img_map = {}
         self.img_list = []
         # loads the image/gt pairs
-        for _, train_list in enumerate(self.img_list_file):
-            train_list = train_list.strip()
+        for _, train_list in enumerate([self.img_list_file]):
+            #train_list = train_list.strip()
+            print("Loading {}".format(train_list))
             with open(os.path.join(self.root_path, train_list)) as fin:
                 for line in fin:
-                    if len(line) < 2: 
+                    if len(line) < 2:
                         continue
                     line = line.strip().split()
-                    self.img_map[os.path.join(self.root_path, line[0].strip())] = \
-                                    os.path.join(self.root_path, line[1].strip())
+                    self.img_map[os.path.join(self.root_path, line[0].strip().replace("\\","/"))] = \
+                        os.path.join(self.root_path, line[1].strip().replace("\\","/"))
         self.img_list = sorted(list(self.img_map.keys()))
         # number of samples
         self.nSamples = len(self.img_list)
-        
+
         self.transform = transform
         self.train = train
         self.patch = patch
@@ -84,7 +86,7 @@ class SHHA(Dataset):
         target = [{} for i in range(len(point))]
         for i, _ in enumerate(point):
             target[i]['point'] = torch.Tensor(point[i])
-            image_id = int(img_path.split('/')[-1].split('.')[0].split('_')[-1])
+            image_id = int(img_path.split('/')[-1].split('.')[0].split('_')[0])
             image_id = torch.Tensor([image_id]).long()
             target[i]['image_id'] = image_id
             target[i]['labels'] = torch.ones([point[i].shape[0]]).long()
@@ -95,7 +97,7 @@ class SHHA(Dataset):
 def load_data(img_gt_path, train):
     img_path, gt_path = img_gt_path
     # load the images
-    img = cv2.imread(img_path)
+    img = cv2.imdecode(np.fromfile(img_path,dtype=np.uint8),cv2.IMREAD_UNCHANGED)
     img = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
     # load ground truth points
     points = []
@@ -106,6 +108,7 @@ def load_data(img_gt_path, train):
             points.append([x, y])
 
     return img, np.array(points)
+
 
 # random crop augumentation
 def random_crop(img, den, num_patch=4):

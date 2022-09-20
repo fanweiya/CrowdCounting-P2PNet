@@ -118,7 +118,7 @@ def main(args):
     # create the dataset
     loading_data = build_dataset(args=args)
     # create the training and valiation set
-    train_set, val_set = loading_data(args.data_root)
+    train_set, val_set = loading_data(os.path.join(os.getcwd(),args.data_root))
     # create the sampler used during training
     sampler_train = torch.utils.data.RandomSampler(train_set)
     sampler_val = torch.utils.data.SequentialSampler(val_set)
